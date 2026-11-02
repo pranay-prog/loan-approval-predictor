@@ -1,0 +1,54 @@
+# Alternative to the shell scripts: `podman compose up -d --build`
+# (needs podman-compose or docker-compose installed). Uses the same names as
+# podman/up.sh, so do not run both at the same time.
+name: loan
+
+services:
+  loan-db:
+    image: docker.io/library/postgres:16-alpine
+    container_name: loan-db
+    environment:
+      POSTGRES_USER: loanuser
+      POSTGRES_PASSWORD: loanpass
+      POSTGRES_DB: loans
+    volumes:
+      - loan-pgdata:/var/lib/postgresql/data:Z
+    networks: [loan-net]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U loanuser -d loans"]
+      interval: 10s
+      retries: 5
+    restart: on-failure
+
+  loan-app:
+    build:
+      context: .
+      dockerfile: Containerfile
+      args:
+        APP_VERSION: 1.0.0
+    image: localhost/loan-approval-predictor:1.0.0
+    container_name: loan-app
+    depends_on:
+      loan-db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://loanuser:loanpass@loan-db:5432/loans
+    ports:
+      - "8080:5000"
+    volumes:
+      - loan-models:/app/models:Z
+      - ./data:/app/data:Z
+      - ./logs:/app/logs:Z
+    networks: [loan-net]
+    restart: on-failure
+
+volumes:
+  loan-pgdata:
+    name: loan-pgdata
+  loan-models:
+    name: loan-models
+
+networks:
+  loan-net:
+    name: loan-net
+    driver: bridge

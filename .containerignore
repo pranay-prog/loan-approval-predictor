@@ -1,0 +1,21 @@
+# Files NOT copied into the image (keeps it small and clean)
+.git
+.github
+.gitignore
+.venv
+venv
+__pycache__
+**/__pycache__
+*.pyc
+.pytest_cache
+models/
+logs/
+*.db
+*.bak
+data/*.upload
+docs/screenshots
+podman/
+Makefile
+podman-compose.yml
+*.md
+!README.md

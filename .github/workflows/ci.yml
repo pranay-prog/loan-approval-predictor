@@ -1,0 +1,29 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - run: python -m pytest -q
+
+  image:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image with Podman
+        run: podman build --format docker -t loan-approval-predictor:ci .
+      - name: Smoke test the container
+        run: |
+          podman run -d --name smoke -p 8080:5000 loan-approval-predictor:ci
+          for i in $(seq 1 30); do curl -fsS localhost:8080/api/health && break; sleep 2; done
+          curl -fsS -X POST localhost:8080/api/predict -H 'Content-Type: application/json' \
+            -d '{"Gender":"Male","Married":"Yes","Dependents":"0","Education":"Graduate","Self_Employed":"No","ApplicantIncome":5000,"CoapplicantIncome":0,"LoanAmount":120,"Loan_Amount_Term":360,"Credit_History":1,"Property_Area":"Urban"}'
+          podman logs smoke
